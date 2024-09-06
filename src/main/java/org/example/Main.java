@@ -4,6 +4,7 @@ import java.util.Date;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
 public class Main {
   private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
   private static final ScheduledExecutorService SERVICE = Executors.newScheduledThreadPool(1);
+  private static final AtomicInteger DELAY = new AtomicInteger(5);
   private static Scheduler SCHEDULER;
 
   public static void main(String[] args) {
@@ -66,6 +68,9 @@ public class Main {
       SERVICE.schedule(() -> {
         LOGGER.info("Hello, World!");
         try {
+          LOGGER.info("Attempt to delete trigger: {}", context.getTrigger().getKey());
+          SCHEDULER.unscheduleJob(context.getTrigger().getKey());
+          LOGGER.info("Attempt to delete job: {}", context.getJobDetail().getKey());
           SCHEDULER.deleteJob(context.getJobDetail().getKey());
           // Define a simple job
           JobDetail job = JobBuilder.newJob(HelloJob.class)
@@ -78,10 +83,10 @@ public class Main {
               .startAt(Date.from(context.getFireTime().toInstant().plusMillis(3000)))
               .build();
           SCHEDULER.scheduleJob(job, trigger);
-        } catch (SchedulerException se) {
+                  } catch (SchedulerException se) {
           LOGGER.warn("SchedulerException: {}", se.getMessage());
         }
-      }, 10, TimeUnit.MILLISECONDS); // If delay is 100 ms works without problem
+      }, DELAY.getAndUpdate(n -> n + 5), TimeUnit.MILLISECONDS); // If delay is 100 ms works without problem
     }
   }
 }
